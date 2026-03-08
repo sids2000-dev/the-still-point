@@ -332,7 +332,7 @@ export function useGameState() {
         timestamp: Date.now(),
       });
     }
-  }, [isHost, advanceToNode, broadcastToAll, playerId]);
+  }, [advanceToNode, broadcastToAll, playerId]);
 
   const startBreakTimer = useCallback(() => {
     if (breakTimerRef.current) clearInterval(breakTimerRef.current);
