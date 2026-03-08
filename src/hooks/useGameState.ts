@@ -139,14 +139,14 @@ export function useGameState() {
     }));
     const peer = createPeer('joiner');
     const offer = await peer.createOffer();
-    setSdpOffer(offer);
+    setSdpOffer(btoa(offer));
   }, [playerId, playerName, createPeer]);
 
   const generateNewOffer = useCallback(async () => {
     const peerId = `joiner-${Date.now()}`;
     const peer = createPeer(peerId);
     const offer = await peer.createOffer();
-    setSdpOffer(offer);
+    setSdpOffer(btoa(offer));
     setPendingOffers(prev => [...prev, peerId]);
   }, [createPeer]);
 
@@ -156,14 +156,14 @@ export function useGameState() {
       : 'joiner';
     const peer = peersRef.current.get(lastPeerId);
     if (peer) {
-      await peer.handleAnswer(answerStr);
+      await peer.handleAnswer(atob(answerStr));
     }
   }, [pendingOffers]);
 
   const joinGame = useCallback(async (offerStr: string) => {
     const peer = createPeer('host');
-    const answer = await peer.handleOffer(offerStr);
-    setSdpAnswer(answer);
+    const answer = await peer.handleOffer(atob(offerStr));
+    setSdpAnswer(btoa(answer));
   }, [createPeer]);
 
   const assignChallenges = useCallback((nodeId: string, players: Player[]): Record<string, Challenge> => {
