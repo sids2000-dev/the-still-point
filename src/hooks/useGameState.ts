@@ -121,7 +121,7 @@ export function useGameState() {
       case 'player-ready':
         break;
     }
-  }, [isHost, syncGameState]);
+  }, [syncGameState]);
 
   const markOfferStatus = useCallback((peerId: string, status: PendingOffer['status']) => {
     pendingOffersRef.current = pendingOffersRef.current.map(o =>
