@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Users, Copy, Check, Wifi } from 'lucide-react';
+import { Users, Copy, Check, Wifi, Loader2 } from 'lucide-react';
 import { Player } from '@/hooks/useGameState';
 
 interface LobbyProps {
@@ -14,7 +14,7 @@ interface LobbyProps {
   sdpAnswer: string;
   onHost: () => void;
   onJoin: (offer: string) => void;
-  onHandleAnswer: (answer: string) => void;
+  onHandleAnswer: (answer: string) => Promise<{ success: boolean; error?: string }>;
   onGenerateNewOffer: () => void;
   onStart: () => void;
 }
@@ -28,11 +28,27 @@ export function Lobby({
   const [joinOffer, setJoinOffer] = useState('');
   const [answerInput, setAnswerInput] = useState('');
   const [copied, setCopied] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptStatus, setAcceptStatus] = useState<string | null>(null);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleAcceptPlayer = async () => {
+    if (accepting || !answerInput.trim()) return;
+    setAccepting(true);
+    setAcceptStatus(null);
+    const result = await onHandleAnswer(answerInput);
+    if (result.success) {
+      setAcceptStatus('Answer accepted, connecting...');
+      setAnswerInput('');
+    } else {
+      setAcceptStatus(result.error || 'Failed to accept player');
+    }
+    setAccepting(false);
   };
 
   if (mode === 'choose') {
@@ -73,7 +89,6 @@ export function Lobby({
             </div>
           </div>
 
-          {/* Doodle */}
           <div className="mt-8 flex justify-center opacity-20">
             <svg width="120" height="40" viewBox="0 0 120 40">
               <path d="M10,30 Q30,5 60,20 Q90,35 110,10" fill="none" stroke="hsl(var(--zen-sunset))" strokeWidth="1.5" strokeLinecap="round" />
@@ -181,13 +196,22 @@ export function Lobby({
                 className="w-full h-20 rounded-lg border border-input bg-background p-3 text-xs font-mono resize-none"
                 placeholder="Paste answer code..."
                 value={answerInput}
-                onChange={(e) => setAnswerInput(e.target.value)}
+                onChange={(e) => { setAnswerInput(e.target.value); setAcceptStatus(null); }}
               />
+              {acceptStatus && (
+                <p className={`text-xs ${acceptStatus.includes('accepted') ? 'text-zen-sage' : 'text-destructive'}`}>
+                  {acceptStatus}
+                </p>
+              )}
               <div className="flex gap-2">
-                <Button onClick={() => { onHandleAnswer(answerInput); setAnswerInput(''); }} disabled={!answerInput.trim()} className="flex-1">
-                  Accept Player
+                <Button
+                  onClick={handleAcceptPlayer}
+                  disabled={!answerInput.trim() || accepting}
+                  className="flex-1"
+                >
+                  {accepting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accepting...</> : 'Accept Player'}
                 </Button>
-                <Button variant="secondary" onClick={() => { onGenerateNewOffer(); }} className="flex-1">
+                <Button variant="secondary" onClick={onGenerateNewOffer} className="flex-1">
                   New Invite Code
                 </Button>
               </div>
