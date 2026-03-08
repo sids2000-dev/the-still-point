@@ -354,7 +354,7 @@ export function useGameState() {
         return { ...prev, breakTimeLeft: prev.breakTimeLeft - 1 };
       });
     }, 1000);
-  }, [isHost, broadcastToAll, playerId]);
+  }, [broadcastToAll, playerId]);
 
   return {
     playerId,
