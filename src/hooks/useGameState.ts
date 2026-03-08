@@ -31,8 +31,20 @@ const BREAK_DURATION = 5;
 
 export function useGameState() {
   const [playerId] = useState(() => crypto.randomUUID());
-  const [playerName, setPlayerName] = useState('');
-  const [isHost, setIsHost] = useState(false);
+  const [playerName, _setPlayerName] = useState('');
+  const [isHost, _setIsHost] = useState(false);
+  const isHostRef = useRef(false);
+  const playerNameRef = useRef('');
+
+  const setPlayerName = useCallback((name: string) => {
+    playerNameRef.current = name;
+    _setPlayerName(name);
+  }, []);
+
+  const setIsHost = useCallback((val: boolean) => {
+    isHostRef.current = val;
+    _setIsHost(val);
+  }, []);
   const [gameState, setGameState] = useState<GameState>({
     phase: 'lobby',
     currentNodeId: 'start',
@@ -68,7 +80,7 @@ export function useGameState() {
         setGameState(msg.payload);
         break;
       case 'player-join':
-        if (isHost) {
+        if (isHostRef.current) {
           setGameState(prev => {
             const exists = prev.players.some(p => p.id === msg.payload.id);
             if (exists) return prev;
@@ -82,7 +94,7 @@ export function useGameState() {
         }
         break;
       case 'challenge-solved':
-        if (isHost) {
+        if (isHostRef.current) {
           setGameState(prev => {
             if (prev.solvedBy) return prev;
             const solverId = msg.payload.playerId;
@@ -101,7 +113,7 @@ export function useGameState() {
         }
         break;
       case 'advance-story':
-        if (isHost) {
+        if (isHostRef.current) {
           const nextNodeId = msg.payload.nextNodeId;
           advanceToNode(nextNodeId);
         }
@@ -109,7 +121,7 @@ export function useGameState() {
       case 'player-ready':
         break;
     }
-  }, [isHost, syncGameState]);
+  }, [syncGameState]);
 
   const markOfferStatus = useCallback((peerId: string, status: PendingOffer['status']) => {
     pendingOffersRef.current = pendingOffersRef.current.map(o =>
@@ -126,7 +138,7 @@ export function useGameState() {
         markOfferStatus(peerId, 'connected');
         peer.send({
           type: 'player-join',
-          payload: { id: playerId, name: playerName },
+          payload: { id: playerId, name: playerNameRef.current },
           senderId: playerId,
           timestamp: Date.now(),
         });
@@ -144,7 +156,7 @@ export function useGameState() {
     );
     peersRef.current.set(peerId, peer);
     return peer;
-  }, [handleMessage, playerId, playerName, markOfferStatus]);
+  }, [handleMessage, playerId, markOfferStatus]);
 
   const hostGame = useCallback(async () => {
     setIsHost(true);
@@ -282,7 +294,7 @@ export function useGameState() {
     if (!challenge) return false;
     const correct = answer.toLowerCase().trim() === challenge.answer.toLowerCase().trim();
     if (correct) {
-      if (isHost) {
+      if (isHostRef.current) {
         setGameState(prev => {
           if (prev.solvedBy) return prev;
           const updated: GameState = {
@@ -307,10 +319,10 @@ export function useGameState() {
       }
     }
     return correct;
-  }, [gameState, playerId, isHost, syncGameState, broadcastToAll]);
+  }, [gameState, playerId, syncGameState, broadcastToAll]);
 
   const chooseBranch = useCallback((nextNodeId: string) => {
-    if (isHost) {
+    if (isHostRef.current) {
       advanceToNode(nextNodeId);
     } else {
       broadcastToAll({
@@ -320,7 +332,7 @@ export function useGameState() {
         timestamp: Date.now(),
       });
     }
-  }, [isHost, advanceToNode, broadcastToAll, playerId]);
+  }, [advanceToNode, broadcastToAll, playerId]);
 
   const startBreakTimer = useCallback(() => {
     if (breakTimerRef.current) clearInterval(breakTimerRef.current);
@@ -329,7 +341,7 @@ export function useGameState() {
         if (prev.breakTimeLeft <= 1) {
           if (breakTimerRef.current) clearInterval(breakTimerRef.current);
           const updated = { ...prev, breakTimeLeft: 0, phase: 'story' as GamePhase };
-          if (isHost) {
+          if (isHostRef.current) {
             broadcastToAll({
               type: 'game-state',
               payload: updated,
@@ -342,7 +354,7 @@ export function useGameState() {
         return { ...prev, breakTimeLeft: prev.breakTimeLeft - 1 };
       });
     }, 1000);
-  }, [isHost, broadcastToAll, playerId]);
+  }, [broadcastToAll, playerId]);
 
   return {
     playerId,
