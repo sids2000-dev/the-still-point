@@ -138,7 +138,7 @@ export function useGameState() {
         markOfferStatus(peerId, 'connected');
         peer.send({
           type: 'player-join',
-          payload: { id: playerId, name: playerName },
+          payload: { id: playerId, name: playerNameRef.current },
           senderId: playerId,
           timestamp: Date.now(),
         });
