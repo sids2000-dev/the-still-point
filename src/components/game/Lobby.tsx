@@ -105,7 +105,19 @@ export function Lobby({
         <Card className="w-full max-w-lg p-8 animate-float-in" style={{ boxShadow: 'var(--shadow-float)' }}>
           <h2 className="text-2xl font-serif mb-4 text-foreground">Join Game</h2>
 
-          {!sdpAnswer ? (
+          {sdpAnswer && players.length > 0 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Connected! Waiting for host to begin...</p>
+              <div className="space-y-2">
+                {players.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                    <div className={`w-2 h-2 rounded-full ${p.connected ? 'bg-zen-sage' : 'bg-destructive'}`} />
+                    <span className="text-sm text-foreground">{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : !sdpAnswer ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Paste the host's connection code below:</p>
               <textarea
