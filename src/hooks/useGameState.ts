@@ -294,7 +294,7 @@ export function useGameState() {
     if (!challenge) return false;
     const correct = answer.toLowerCase().trim() === challenge.answer.toLowerCase().trim();
     if (correct) {
-      if (isHost) {
+      if (isHostRef.current) {
         setGameState(prev => {
           if (prev.solvedBy) return prev;
           const updated: GameState = {
