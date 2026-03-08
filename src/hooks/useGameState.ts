@@ -162,8 +162,8 @@ export function useGameState() {
 
   const joinGame = useCallback(async (offerStr: string) => {
     const peer = createPeer('host');
-    const answer = await peer.handleOffer(offerStr);
-    setSdpAnswer(answer);
+    const answer = await peer.handleOffer(atob(offerStr));
+    setSdpAnswer(btoa(answer));
   }, [createPeer]);
 
   const assignChallenges = useCallback((nodeId: string, players: Player[]): Record<string, Challenge> => {
