@@ -156,7 +156,7 @@ export function useGameState() {
       : 'joiner';
     const peer = peersRef.current.get(lastPeerId);
     if (peer) {
-      await peer.handleAnswer(answerStr);
+      await peer.handleAnswer(atob(answerStr));
     }
   }, [pendingOffers]);
 
