@@ -65,6 +65,10 @@ export class PeerConnection {
   }
 
   async handleAnswer(answerStr: string) {
+    if (this.pc.signalingState !== 'have-local-offer') {
+      console.warn('PeerConnection not in have-local-offer state, current:', this.pc.signalingState);
+      return;
+    }
     const answer = JSON.parse(answerStr);
     await this.pc.setRemoteDescription(answer);
   }
