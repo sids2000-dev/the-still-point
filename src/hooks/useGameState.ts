@@ -341,7 +341,7 @@ export function useGameState() {
         if (prev.breakTimeLeft <= 1) {
           if (breakTimerRef.current) clearInterval(breakTimerRef.current);
           const updated = { ...prev, breakTimeLeft: 0, phase: 'story' as GamePhase };
-          if (isHost) {
+          if (isHostRef.current) {
             broadcastToAll({
               type: 'game-state',
               payload: updated,
