@@ -41,7 +41,7 @@ export function Lobby({
         <Card className="w-full max-w-md p-8 animate-float-in" style={{ boxShadow: 'var(--shadow-float)' }}>
           <div className="text-center mb-8">
             <h1 className="text-4xl font-serif mb-2 text-foreground">The Still Point</h1>
-            <p className="text-muted-foreground text-sm">A cooperative journey of mind and spirit</p>
+            <p className="text-muted-foreground text-sm">A journey of mind, spirit and togetherness</p>
           </div>
 
           <div className="space-y-4">
