@@ -139,7 +139,7 @@ export function useGameState() {
     }));
     const peer = createPeer('joiner');
     const offer = await peer.createOffer();
-    setSdpOffer(offer);
+    setSdpOffer(btoa(offer));
   }, [playerId, playerName, createPeer]);
 
   const generateNewOffer = useCallback(async () => {
