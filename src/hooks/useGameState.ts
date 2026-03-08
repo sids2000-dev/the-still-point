@@ -156,7 +156,7 @@ export function useGameState() {
     );
     peersRef.current.set(peerId, peer);
     return peer;
-  }, [handleMessage, playerId, playerName, markOfferStatus]);
+  }, [handleMessage, playerId, markOfferStatus]);
 
   const hostGame = useCallback(async () => {
     setIsHost(true);
