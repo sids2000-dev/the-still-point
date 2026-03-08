@@ -319,7 +319,7 @@ export function useGameState() {
       }
     }
     return correct;
-  }, [gameState, playerId, isHost, syncGameState, broadcastToAll]);
+  }, [gameState, playerId, syncGameState, broadcastToAll]);
 
   const chooseBranch = useCallback((nextNodeId: string) => {
     if (isHost) {
