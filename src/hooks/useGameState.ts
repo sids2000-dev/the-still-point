@@ -146,7 +146,7 @@ export function useGameState() {
     const peerId = `joiner-${Date.now()}`;
     const peer = createPeer(peerId);
     const offer = await peer.createOffer();
-    setSdpOffer(offer);
+    setSdpOffer(btoa(offer));
     setPendingOffers(prev => [...prev, peerId]);
   }, [createPeer]);
 
