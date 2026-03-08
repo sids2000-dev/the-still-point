@@ -94,7 +94,7 @@ export function useGameState() {
         }
         break;
       case 'challenge-solved':
-        if (isHost) {
+        if (isHostRef.current) {
           setGameState(prev => {
             if (prev.solvedBy) return prev;
             const solverId = msg.payload.playerId;
