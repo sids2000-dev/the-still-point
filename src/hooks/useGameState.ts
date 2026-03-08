@@ -22,6 +22,11 @@ export interface GameState {
   breakTimeLeft: number;
 }
 
+interface PendingOffer {
+  peerId: string;
+  status: 'awaiting-answer' | 'answered' | 'connected';
+}
+
 const BREAK_DURATION = 5;
 
 export function useGameState() {
@@ -39,7 +44,7 @@ export function useGameState() {
   });
   const [sdpOffer, setSdpOffer] = useState('');
   const [sdpAnswer, setSdpAnswer] = useState('');
-  const [pendingOffers, setPendingOffers] = useState<string[]>([]);
+  const pendingOffersRef = useRef<PendingOffer[]>([]);
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
   const breakTimerRef = useRef<number | null>(null);
 
@@ -106,11 +111,19 @@ export function useGameState() {
     }
   }, [isHost, syncGameState]);
 
+  const markOfferStatus = useCallback((peerId: string, status: PendingOffer['status']) => {
+    pendingOffersRef.current = pendingOffersRef.current.map(o =>
+      o.peerId === peerId ? { ...o, status } : o
+    );
+  }, []);
+
   const createPeer = useCallback((peerId: string) => {
     const peer = new PeerConnection(
       peerId,
       handleMessage,
       () => {
+        console.log(`[gameState] Peer ${peerId} connected`);
+        markOfferStatus(peerId, 'connected');
         peer.send({
           type: 'player-join',
           payload: { id: playerId, name: playerName },
@@ -119,6 +132,8 @@ export function useGameState() {
         });
       },
       () => {
+        console.log(`[gameState] Peer ${peerId} disconnected`);
+        markOfferStatus(peerId, 'awaiting-answer');
         setGameState(prev => ({
           ...prev,
           players: prev.players.map(p =>
@@ -129,7 +144,7 @@ export function useGameState() {
     );
     peersRef.current.set(peerId, peer);
     return peer;
-  }, [handleMessage, playerId, playerName]);
+  }, [handleMessage, playerId, playerName, markOfferStatus]);
 
   const hostGame = useCallback(async () => {
     setIsHost(true);
@@ -137,56 +152,73 @@ export function useGameState() {
       ...prev,
       players: [{ id: playerId, name: playerName, xp: 0, solved: 0, connected: true }],
     }));
-    const peer = createPeer('joiner');
-    const offer = await peer.createOffer();
-    setSdpOffer(btoa(offer));
-  }, [playerId, playerName, createPeer]);
-
-  const generateNewOffer = useCallback(async () => {
     const peerId = `joiner-${Date.now()}`;
     const peer = createPeer(peerId);
     const offer = await peer.createOffer();
-    setSdpOffer(btoa(offer));
-    setPendingOffers(prev => [...prev, peerId]);
-  }, [createPeer]);
+    const encoded = btoa(offer);
+    setSdpOffer(encoded);
+    pendingOffersRef.current = [{ peerId, status: 'awaiting-answer' }];
+  }, [playerId, playerName, createPeer]);
 
-  const handleAnswerInput = useCallback(async (answerStr: string) => {
-    const trimmed = answerStr.trim();
-    if (!trimmed) return;
-    
-    // Try all peers to find one in the right state
-    const lastPeerId = pendingOffers.length > 0
-      ? pendingOffers[pendingOffers.length - 1]
-      : 'joiner';
-    
-    let peer = peersRef.current.get(lastPeerId);
-    
-    // If the expected peer isn't in the right state, search all peers
-    if (!peer || peer.pc.signalingState !== 'have-local-offer') {
-      for (const [id, p] of peersRef.current) {
-        if (p.pc.signalingState === 'have-local-offer') {
-          peer = p;
-          console.log('Found peer in have-local-offer state:', id);
-          break;
+  const generateNewOffer = useCallback(async () => {
+    // Close stale peers that never connected
+    for (const entry of pendingOffersRef.current) {
+      if (entry.status === 'awaiting-answer') {
+        const stalePeer = peersRef.current.get(entry.peerId);
+        if (stalePeer) {
+          stalePeer.close();
+          peersRef.current.delete(entry.peerId);
         }
       }
     }
-    
-    if (peer) {
-      try {
-        const decoded = atob(trimmed);
-        await peer.handleAnswer(decoded);
-      } catch (e) {
-        console.error('Failed to handle answer:', e);
-      }
-    } else {
-      console.warn('No peer found in have-local-offer state');
+    // Remove stale entries
+    pendingOffersRef.current = pendingOffersRef.current.filter(o => o.status === 'connected');
+
+    const peerId = `joiner-${Date.now()}`;
+    const peer = createPeer(peerId);
+    const offer = await peer.createOffer();
+    const encoded = btoa(offer);
+    setSdpOffer(encoded);
+    pendingOffersRef.current.push({ peerId, status: 'awaiting-answer' });
+  }, [createPeer]);
+
+  const handleAnswerInput = useCallback(async (answerStr: string): Promise<{ success: boolean; error?: string }> => {
+    const trimmed = answerStr.replace(/\s+/g, '').trim();
+    if (!trimmed) return { success: false, error: 'Empty answer code' };
+
+    // Find a peer awaiting answer
+    const entry = pendingOffersRef.current.find(
+      o => o.status === 'awaiting-answer'
+    );
+
+    if (!entry) {
+      return { success: false, error: 'No pending invite. Generate a new invite code first.' };
     }
-  }, [pendingOffers]);
+
+    const peer = peersRef.current.get(entry.peerId);
+    if (!peer) {
+      return { success: false, error: 'Peer not found. Generate a new invite code.' };
+    }
+
+    if (peer.pc.signalingState !== 'have-local-offer') {
+      return { success: false, error: `Peer in unexpected state (${peer.pc.signalingState}). Generate a new invite code.` };
+    }
+
+    try {
+      const decoded = atob(trimmed);
+      JSON.parse(decoded); // validate JSON
+      await peer.handleAnswer(decoded);
+      markOfferStatus(entry.peerId, 'answered');
+      return { success: true };
+    } catch (e) {
+      console.error('[gameState] Failed to handle answer:', e);
+      return { success: false, error: 'Invalid answer code. Check that you copied it correctly.' };
+    }
+  }, [markOfferStatus]);
 
   const joinGame = useCallback(async (offerStr: string) => {
     const peer = createPeer('host');
-    const answer = await peer.handleOffer(atob(offerStr));
+    const answer = await peer.handleOffer(atob(offerStr.replace(/\s+/g, '').trim()));
     setSdpAnswer(btoa(answer));
   }, [createPeer]);
 

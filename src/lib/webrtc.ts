@@ -65,13 +65,22 @@ export class PeerConnection {
   }
 
   async handleAnswer(answerStr: string) {
-    console.log('handleAnswer called, signalingState:', this.pc.signalingState, 'peerId:', this.peerId);
-    if (this.pc.signalingState !== 'have-local-offer') {
-      console.warn('PeerConnection not in have-local-offer state, current:', this.pc.signalingState);
+    const state = this.pc.signalingState;
+    console.log(`[webrtc] handleAnswer peerId=${this.peerId} signalingState=${state}`);
+    
+    if (state === 'stable') {
+      console.info(`[webrtc] Already stable for ${this.peerId}, ignoring duplicate answer`);
       return;
     }
+    
+    if (state !== 'have-local-offer') {
+      console.warn(`[webrtc] Unexpected state ${state} for ${this.peerId}, skipping`);
+      return;
+    }
+    
     const answer = JSON.parse(answerStr);
     await this.pc.setRemoteDescription(answer);
+    console.log(`[webrtc] Remote description set for ${this.peerId}`);
   }
 
   send(msg: GameMessage) {
@@ -86,8 +95,14 @@ export class PeerConnection {
   }
 
   private setupChannel(channel: RTCDataChannel) {
-    channel.onopen = () => this.onOpen();
-    channel.onclose = () => this.onClose();
+    channel.onopen = () => {
+      console.log(`[webrtc] Data channel open for ${this.peerId}`);
+      this.onOpen();
+    };
+    channel.onclose = () => {
+      console.log(`[webrtc] Data channel closed for ${this.peerId}`);
+      this.onClose();
+    };
     channel.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data) as GameMessage;
@@ -102,15 +117,30 @@ export class PeerConnection {
         resolve();
         return;
       }
-      const check = () => {
-        if (this.pc.iceGatheringState === 'complete') {
-          this.pc.removeEventListener('icegatheringstatechange', check);
-          resolve();
-        }
+
+      let resolved = false;
+      const done = () => {
+        if (resolved) return;
+        resolved = true;
+        this.pc.removeEventListener('icegatheringstatechange', onStateChange);
+        this.pc.removeEventListener('icecandidate', onCandidate);
+        clearTimeout(timer);
+        resolve();
       };
-      this.pc.addEventListener('icegatheringstatechange', check);
-      // Fallback timeout
-      setTimeout(resolve, 3000);
+
+      const onStateChange = () => {
+        if (this.pc.iceGatheringState === 'complete') done();
+      };
+
+      const onCandidate = (e: RTCPeerConnectionIceEvent) => {
+        if (e.candidate === null) done();
+      };
+
+      this.pc.addEventListener('icegatheringstatechange', onStateChange);
+      this.pc.addEventListener('icecandidate', onCandidate);
+
+      // Fallback timeout - 5s
+      const timer = setTimeout(done, 5000);
     });
   }
 }
