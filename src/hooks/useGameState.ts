@@ -322,7 +322,7 @@ export function useGameState() {
   }, [gameState, playerId, syncGameState, broadcastToAll]);
 
   const chooseBranch = useCallback((nextNodeId: string) => {
-    if (isHost) {
+    if (isHostRef.current) {
       advanceToNode(nextNodeId);
     } else {
       broadcastToAll({
