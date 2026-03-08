@@ -31,8 +31,20 @@ const BREAK_DURATION = 5;
 
 export function useGameState() {
   const [playerId] = useState(() => crypto.randomUUID());
-  const [playerName, setPlayerName] = useState('');
-  const [isHost, setIsHost] = useState(false);
+  const [playerName, _setPlayerName] = useState('');
+  const [isHost, _setIsHost] = useState(false);
+  const isHostRef = useRef(false);
+  const playerNameRef = useRef('');
+
+  const setPlayerName = useCallback((name: string) => {
+    playerNameRef.current = name;
+    _setPlayerName(name);
+  }, []);
+
+  const setIsHost = useCallback((val: boolean) => {
+    isHostRef.current = val;
+    _setIsHost(val);
+  }, []);
   const [gameState, setGameState] = useState<GameState>({
     phase: 'lobby',
     currentNodeId: 'start',
