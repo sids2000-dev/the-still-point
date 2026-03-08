@@ -80,7 +80,7 @@ export function useGameState() {
         setGameState(msg.payload);
         break;
       case 'player-join':
-        if (isHost) {
+        if (isHostRef.current) {
           setGameState(prev => {
             const exists = prev.players.some(p => p.id === msg.payload.id);
             if (exists) return prev;
