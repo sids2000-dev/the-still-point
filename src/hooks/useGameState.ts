@@ -113,7 +113,7 @@ export function useGameState() {
         }
         break;
       case 'advance-story':
-        if (isHost) {
+        if (isHostRef.current) {
           const nextNodeId = msg.payload.nextNodeId;
           advanceToNode(nextNodeId);
         }
