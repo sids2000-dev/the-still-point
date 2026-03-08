@@ -65,6 +65,7 @@ export class PeerConnection {
   }
 
   async handleAnswer(answerStr: string) {
+    console.log('handleAnswer called, signalingState:', this.pc.signalingState, 'peerId:', this.peerId);
     if (this.pc.signalingState !== 'have-local-offer') {
       console.warn('PeerConnection not in have-local-offer state, current:', this.pc.signalingState);
       return;

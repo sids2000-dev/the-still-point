@@ -151,12 +151,36 @@ export function useGameState() {
   }, [createPeer]);
 
   const handleAnswerInput = useCallback(async (answerStr: string) => {
+    const trimmed = answerStr.trim();
+    if (!trimmed) return;
+    
+    // Try all peers to find one in the right state
     const lastPeerId = pendingOffers.length > 0
       ? pendingOffers[pendingOffers.length - 1]
       : 'joiner';
-    const peer = peersRef.current.get(lastPeerId);
+    
+    let peer = peersRef.current.get(lastPeerId);
+    
+    // If the expected peer isn't in the right state, search all peers
+    if (!peer || peer.pc.signalingState !== 'have-local-offer') {
+      for (const [id, p] of peersRef.current) {
+        if (p.pc.signalingState === 'have-local-offer') {
+          peer = p;
+          console.log('Found peer in have-local-offer state:', id);
+          break;
+        }
+      }
+    }
+    
     if (peer) {
-      await peer.handleAnswer(atob(answerStr));
+      try {
+        const decoded = atob(trimmed);
+        await peer.handleAnswer(decoded);
+      } catch (e) {
+        console.error('Failed to handle answer:', e);
+      }
+    } else {
+      console.warn('No peer found in have-local-offer state');
     }
   }, [pendingOffers]);
 
