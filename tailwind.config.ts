@@ -47,6 +47,14 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        zen: {
+          warm: "hsl(var(--zen-warm))",
+          sand: "hsl(var(--zen-sand))",
+          sage: "hsl(var(--zen-sage))",
+          ocean: "hsl(var(--zen-ocean))",
+          sunset: "hsl(var(--zen-sunset))",
+          ink: "hsl(var(--zen-ink))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
