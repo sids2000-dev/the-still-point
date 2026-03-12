@@ -32,6 +32,7 @@ export function GameContainer() {
             onJoin={game.joinGame}
             onHandleAnswer={game.handleAnswerInput}
             onGenerateNewOffer={game.generateNewOffer}
+            isGeneratingOffer={game.isGeneratingOffer}
             onStart={game.startGame}
           />
         );
