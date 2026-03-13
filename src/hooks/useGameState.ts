@@ -288,6 +288,20 @@ export function useGameState() {
     syncGameState(updated);
   }, [gameState, assignChallenges, syncGameState]);
 
+  const proceedToChallenge = useCallback(() => {
+    if (!isHostRef.current) return;
+
+    setGameState(prev => {
+      if (prev.phase !== 'story' || prev.solvedBy) return prev;
+      const updated: GameState = {
+        ...prev,
+        phase: 'challenge',
+      };
+      syncGameState(updated);
+      return updated;
+    });
+  }, [syncGameState]);
+
   const advanceToNode = useCallback((nodeId: string) => {
     const node = storyNodes[nodeId];
     if (!node) return;
@@ -397,6 +411,7 @@ export function useGameState() {
     handleAnswerInput,
     generateNewOffer,
     startGame,
+    proceedToChallenge,
     submitChallengeSolution,
     chooseBranch,
     startBreakTimer,

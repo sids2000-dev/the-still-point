@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useGameState, GamePhase } from '@/hooks/useGameState';
+import { useGameState } from '@/hooks/useGameState';
 import { WavesBackground } from './WavesBackground';
 import { Lobby } from './Lobby';
 import { StoryPanel } from './StoryPanel';
@@ -10,7 +9,6 @@ import { EndingScreen } from './EndingScreen';
 
 export function GameContainer() {
   const game = useGameState();
-  const [showChallenge, setShowChallenge] = useState(false);
 
   const currentChallenge = game.gameState.assignedChallenges[game.playerId];
   const solverName = game.gameState.solvedBy
@@ -38,29 +36,26 @@ export function GameContainer() {
         );
 
       case 'story':
-        if (showChallenge && !game.gameState.solvedBy) {
-          return (
-            <ChallengePanel
-              challenge={currentChallenge}
-              solvedBy={game.gameState.solvedBy}
-              playerName={game.playerName}
-              solverName={solverName}
-              onSubmit={(answer) => {
-                const correct = game.submitChallengeSolution(answer);
-                return correct;
-              }}
-            />
-          );
-        }
         return (
           <StoryPanel
             gameState={game.gameState}
-            onChooseBranch={(nodeId) => {
-              setShowChallenge(false);
-              game.chooseBranch(nodeId);
-            }}
-            onStartChallenge={() => setShowChallenge(true)}
+            onChooseBranch={game.chooseBranch}
+            onProceedToChallenge={game.proceedToChallenge}
             isHost={game.isHost}
+          />
+        );
+
+      case 'challenge':
+        return (
+          <ChallengePanel
+            challenge={currentChallenge}
+            solvedBy={game.gameState.solvedBy}
+            playerName={game.playerName}
+            solverName={solverName}
+            onSubmit={(answer) => {
+              const correct = game.submitChallengeSolution(answer);
+              return correct;
+            }}
           />
         );
 
