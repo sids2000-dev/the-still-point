@@ -59,6 +59,7 @@ export function useGameState() {
   const [sdpAnswer, setSdpAnswer] = useState('');
   const pendingOffersRef = useRef<PendingOffer[]>([]);
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
+  const isGeneratingOfferRef = useRef(false);
   const breakTimerRef = useRef<number | null>(null);
 
   const broadcastToAll = useCallback((msg: GameMessage) => {
@@ -130,6 +131,8 @@ export function useGameState() {
     );
   }, []);
 
+  const createAndPublishOfferRef = useRef<() => Promise<void>>(async () => {});
+
   const createPeer = useCallback((peerId: string) => {
     const peer = new PeerConnection(
       peerId,
@@ -143,6 +146,9 @@ export function useGameState() {
           senderId: playerId,
           timestamp: Date.now(),
         });
+        if (isHostRef.current && peerId.startsWith('joiner-')) {
+          void createAndPublishOfferRef.current();
+        }
       },
       () => {
         console.log(`[gameState] Peer ${peerId} disconnected`);
@@ -159,6 +165,24 @@ export function useGameState() {
     return peer;
   }, [handleMessage, playerId, markOfferStatus]);
 
+  const createAndPublishOffer = useCallback(async () => {
+    if (isGeneratingOfferRef.current) return;
+
+    isGeneratingOfferRef.current = true;
+    try {
+      const peerId = `joiner-${Date.now()}`;
+      const peer = createPeer(peerId);
+      const offer = await peer.createOffer();
+      const encoded = btoa(offer);
+      setSdpOffer(encoded);
+      pendingOffersRef.current.push({ peerId, status: 'awaiting-answer' });
+    } finally {
+      isGeneratingOfferRef.current = false;
+    }
+  }, [createPeer]);
+
+  createAndPublishOfferRef.current = createAndPublishOffer;
+
   const hostGame = useCallback(async () => {
     setIsHost(true);
     setIsGeneratingOffer(true);
@@ -167,16 +191,12 @@ export function useGameState() {
       players: [{ id: playerId, name: playerName, xp: 0, solved: 0, connected: true }],
     }));
     try {
-      const peerId = `joiner-${Date.now()}`;
-      const peer = createPeer(peerId);
-      const offer = await peer.createOffer();
-      const encoded = btoa(offer);
-      setSdpOffer(encoded);
-      pendingOffersRef.current = [{ peerId, status: 'awaiting-answer' }];
+      pendingOffersRef.current = [];
+      await createAndPublishOffer();
     } finally {
       setIsGeneratingOffer(false);
     }
-  }, [playerId, playerName, createPeer]);
+  }, [playerId, playerName, createAndPublishOffer, setIsHost]);
 
   const generateNewOffer = useCallback(async () => {
     setIsGeneratingOffer(true);
@@ -195,16 +215,11 @@ export function useGameState() {
     pendingOffersRef.current = pendingOffersRef.current.filter(o => o.status === 'connected');
 
     try {
-      const peerId = `joiner-${Date.now()}`;
-      const peer = createPeer(peerId);
-      const offer = await peer.createOffer();
-      const encoded = btoa(offer);
-      setSdpOffer(encoded);
-      pendingOffersRef.current.push({ peerId, status: 'awaiting-answer' });
+      await createAndPublishOffer();
     } finally {
       setIsGeneratingOffer(false);
     }
-  }, [createPeer]);
+  }, [createAndPublishOffer]);
 
   const handleAnswerInput = useCallback(async (answerStr: string): Promise<{ success: boolean; error?: string }> => {
     const trimmed = answerStr.replace(/\s+/g, '').trim();
