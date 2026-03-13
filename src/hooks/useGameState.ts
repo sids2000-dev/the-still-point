@@ -55,6 +55,7 @@ export function useGameState() {
     breakTimeLeft: 0,
   });
   const [sdpOffer, setSdpOffer] = useState('');
+  const [isGeneratingOffer, setIsGeneratingOffer] = useState(false);
   const [sdpAnswer, setSdpAnswer] = useState('');
   const pendingOffersRef = useRef<PendingOffer[]>([]);
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
@@ -184,15 +185,22 @@ export function useGameState() {
 
   const hostGame = useCallback(async () => {
     setIsHost(true);
+    setIsGeneratingOffer(true);
     setGameState(prev => ({
       ...prev,
       players: [{ id: playerId, name: playerName, xp: 0, solved: 0, connected: true }],
     }));
-    pendingOffersRef.current = [];
-    await createAndPublishOffer();
+    try {
+      pendingOffersRef.current = [];
+      await createAndPublishOffer();
+    } finally {
+      setIsGeneratingOffer(false);
+    }
   }, [playerId, playerName, createAndPublishOffer, setIsHost]);
 
   const generateNewOffer = useCallback(async () => {
+    setIsGeneratingOffer(true);
+
     // Close stale peers that never connected
     for (const entry of pendingOffersRef.current) {
       if (entry.status === 'awaiting-answer') {
@@ -206,7 +214,11 @@ export function useGameState() {
     // Remove stale entries
     pendingOffersRef.current = pendingOffersRef.current.filter(o => o.status === 'connected');
 
-    await createAndPublishOffer();
+    try {
+      await createAndPublishOffer();
+    } finally {
+      setIsGeneratingOffer(false);
+    }
   }, [createAndPublishOffer]);
 
   const handleAnswerInput = useCallback(async (answerStr: string): Promise<{ success: boolean; error?: string }> => {
@@ -379,6 +391,7 @@ export function useGameState() {
     gameState,
     sdpOffer,
     sdpAnswer,
+    isGeneratingOffer,
     hostGame,
     joinGame,
     handleAnswerInput,
