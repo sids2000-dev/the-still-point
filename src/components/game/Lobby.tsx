@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -16,13 +16,14 @@ interface LobbyProps {
   onJoin: (offer: string) => void;
   onHandleAnswer: (answer: string) => Promise<{ success: boolean; error?: string }>;
   onGenerateNewOffer: () => void;
+  isGeneratingOffer?: boolean;
   onStart: () => void;
 }
 
 export function Lobby({
   playerName, setPlayerName, isHost, players,
   sdpOffer, sdpAnswer,
-  onHost, onJoin, onHandleAnswer, onGenerateNewOffer, onStart,
+  onHost, onJoin, onHandleAnswer, onGenerateNewOffer, isGeneratingOffer = false, onStart,
 }: LobbyProps) {
   const [mode, setMode] = useState<'choose' | 'host' | 'join'>('choose');
   const [joinOffer, setJoinOffer] = useState('');
@@ -30,6 +31,10 @@ export function Lobby({
   const [copied, setCopied] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [acceptStatus, setAcceptStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAcceptStatus(null);
+  }, [sdpOffer]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -43,7 +48,7 @@ export function Lobby({
     setAcceptStatus(null);
     const result = await onHandleAnswer(answerInput);
     if (result.success) {
-      setAcceptStatus('Answer accepted, connecting...');
+      setAcceptStatus('Player connected. New invite code generated.');
       setAnswerInput('');
     } else {
       setAcceptStatus(result.error || 'Failed to accept player');
@@ -211,7 +216,7 @@ export function Lobby({
                 onChange={(e) => { setAnswerInput(e.target.value); setAcceptStatus(null); }}
               />
               {acceptStatus && (
-                <p className={`text-xs ${acceptStatus.includes('accepted') ? 'text-zen-sage' : 'text-destructive'}`}>
+                <p className={`text-xs ${acceptStatus.includes('accepted') || acceptStatus.includes('connected') ? 'text-zen-sage' : 'text-destructive'}`}>
                   {acceptStatus}
                 </p>
               )}
@@ -223,7 +228,12 @@ export function Lobby({
                 >
                   {accepting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Accepting...</> : 'Accept Player'}
                 </Button>
-                <Button variant="secondary" onClick={onGenerateNewOffer} className="flex-1">
+                <Button
+                  variant="secondary"
+                  onClick={onGenerateNewOffer}
+                  disabled={isGeneratingOffer}
+                  className="flex-1"
+                >
                   New Invite Code
                 </Button>
               </div>
