@@ -12,4 +12,4 @@ jobs:
 
     steps:
       - name: Call Deploy Hook
-        run: curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+        run: curl -X POST "${{ secrets.DEPLOYMENT_HOOK }}"
