@@ -51,6 +51,26 @@ interface PendingOffer {
   status: 'awaiting-answer' | 'answered' | 'connected';
 }
 
+const SIGNAL_CODE_MAX_LENGTH = 24_000;
+
+const sanitizeSignalCode = (raw: string): string => {
+  const normalized = raw.replace(/\s+/g, '').trim();
+
+  if (!normalized) {
+    throw new Error('Empty code');
+  }
+
+  if (normalized.length > SIGNAL_CODE_MAX_LENGTH) {
+    throw new Error('Code is too large');
+  }
+
+  if (!/^[A-Za-z0-9+/=]+$/.test(normalized)) {
+    throw new Error('Code contains unsupported characters');
+  }
+
+  return normalized;
+};
+
 const BREAK_DURATION = 5;
 
 export function useGameState() {
@@ -256,8 +276,12 @@ export function useGameState() {
   }, [createAndPublishOffer]);
 
   const handleAnswerInput = useCallback(async (answerStr: string): Promise<{ success: boolean; error?: string }> => {
-    const trimmed = answerStr.replace(/\s+/g, '').trim();
-    if (!trimmed) return { success: false, error: 'Empty answer code' };
+    let trimmed = '';
+    try {
+      trimmed = sanitizeSignalCode(answerStr);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Invalid answer code' };
+    }
 
     // Find a peer awaiting answer
     const entry = pendingOffersRef.current.find(
@@ -291,7 +315,8 @@ export function useGameState() {
 
   const joinGame = useCallback(async (offerStr: string) => {
     const peer = createPeer('host');
-    const answer = await peer.handleOffer(atob(offerStr.replace(/\s+/g, '').trim()));
+    const safeOffer = sanitizeSignalCode(offerStr);
+    const answer = await peer.handleOffer(atob(safeOffer));
     setSdpAnswer(btoa(answer));
   }, [createPeer]);
 
