@@ -11,8 +11,13 @@ interface EndingScreenProps {
 
 export function EndingScreen({ nodeId, players }: EndingScreenProps) {
   const node = storyNodes[nodeId];
-  const totalXp = players.reduce((sum, p) => sum + p.xp, 0);
-  const totalSolved = players.reduce((sum, p) => sum + p.solved, 0);
+  const normalizedPlayers = players.map(player => ({
+    ...player,
+    xp: Number.isFinite(player.xp) ? player.xp : 0,
+    solved: Number.isFinite(player.solved) ? player.solved : 0,
+  }));
+  const totalXp = normalizedPlayers.reduce((sum, p) => sum + p.xp, 0);
+  const totalSolved = normalizedPlayers.reduce((sum, p) => sum + p.solved, 0);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -37,7 +42,7 @@ export function EndingScreen({ nodeId, players }: EndingScreenProps) {
           </div>
 
           <div className="space-y-2 mb-8">
-            {players.sort((a, b) => b.xp - a.xp).map((player, i) => (
+            { [...normalizedPlayers].sort((a, b) => b.xp - a.xp).map((player, i) => (
               <div key={player.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">#{i + 1}</span>

@@ -22,6 +22,30 @@ export interface GameState {
   breakTimeLeft: number;
 }
 
+export function normalizePlayer(player: Partial<Player> & { id?: string; name?: string }): Player {
+  return {
+    id: player.id ?? '',
+    name: player.name ?? 'Player',
+    xp: Number.isFinite(player.xp) ? player.xp : 0,
+    solved: Number.isFinite(player.solved) ? player.solved : 0,
+    connected: typeof player.connected === 'boolean' ? player.connected : true,
+  };
+}
+
+export function normalizeGameState(state: Partial<GameState>): GameState {
+  return {
+    phase: state.phase ?? 'lobby',
+    currentNodeId: state.currentNodeId ?? 'start',
+    assignedChallenges: state.assignedChallenges ?? {},
+    solvedBy: state.solvedBy ?? null,
+    roundNumber: Number.isFinite(state.roundNumber) ? state.roundNumber : 0,
+    breakTimeLeft: Number.isFinite(state.breakTimeLeft) ? state.breakTimeLeft : 0,
+    players: Array.isArray(state.players)
+      ? state.players.map(player => normalizePlayer(player))
+      : [],
+  };
+}
+
 interface PendingOffer {
   peerId: string;
   status: 'awaiting-answer' | 'answered' | 'connected';
@@ -67,10 +91,11 @@ export function useGameState() {
   }, []);
 
   const syncGameState = useCallback((state: GameState) => {
-    setGameState(state);
+    const normalizedState = normalizeGameState(state);
+    setGameState(normalizedState);
     broadcastToAll({
       type: 'game-state',
-      payload: state,
+      payload: normalizedState,
       senderId: playerId,
       timestamp: Date.now(),
     });
@@ -79,7 +104,7 @@ export function useGameState() {
   const handleMessage = useCallback((msg: GameMessage) => {
     switch (msg.type) {
       case 'game-state':
-        setGameState(msg.payload);
+        setGameState(normalizeGameState(msg.payload as Partial<GameState>));
         break;
       case 'player-join':
         if (isHostRef.current) {
@@ -88,7 +113,16 @@ export function useGameState() {
             if (exists) return prev;
             const updated = {
               ...prev,
-              players: [...prev.players, { ...msg.payload, connected: true }],
+              players: [
+                ...prev.players,
+                normalizePlayer({
+                  id: msg.payload.id,
+                  name: msg.payload.name,
+                  xp: msg.payload.xp,
+                  solved: msg.payload.solved,
+                  connected: true,
+                }),
+              ],
             };
             setTimeout(() => syncGameState(updated), 100);
             return updated;
