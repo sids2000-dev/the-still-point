@@ -7,11 +7,11 @@ import { BookOpen } from 'lucide-react';
 interface StoryPanelProps {
   gameState: GameState;
   onChooseBranch: (nodeId: string) => void;
-  onStartChallenge: () => void;
+  onProceedToChallenge: () => void;
   isHost: boolean;
 }
 
-export function StoryPanel({ gameState, onChooseBranch, onStartChallenge, isHost }: StoryPanelProps) {
+export function StoryPanel({ gameState, onChooseBranch, onProceedToChallenge, isHost }: StoryPanelProps) {
   const node = storyNodes[gameState.currentNodeId];
   if (!node) return null;
 
@@ -29,9 +29,13 @@ export function StoryPanel({ gameState, onChooseBranch, onStartChallenge, isHost
 
         {node.branches.length > 0 && !gameState.solvedBy && (
           <div className="space-y-4">
-            <Button onClick={onStartChallenge} className="w-full h-12">
-              Face the Challenge
-            </Button>
+            {isHost ? (
+              <Button onClick={onProceedToChallenge} className="w-full h-12">
+                Proceed to Challenge
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">Waiting for host to proceed to challenge...</p>
+            )}
           </div>
         )}
 
