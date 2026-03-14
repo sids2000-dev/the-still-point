@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -24,21 +25,80 @@ type TransferMode = 'qr' | 'code';
 
 const SIGNAL_CODE_MAX_LENGTH = 24_000;
 
-const isSafeSignalPayload = (value: string) => {
-  const normalized = value.replace(/\s+/g, '').trim();
-  return normalized.length > 0
-    && normalized.length <= SIGNAL_CODE_MAX_LENGTH
-    && /^[A-Za-z0-9+/=]+$/.test(normalized);
+const isLikelyJson = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const toRawSignalPayload = (encodedPayload: string): string | null => {
+  const normalized = encodedPayload.replace(/\s+/g, '').trim();
+  if (!normalized || normalized.length > SIGNAL_CODE_MAX_LENGTH || !/^[A-Za-z0-9+/=]+$/.test(normalized)) {
+    return null;
+  }
+
+  try {
+    const decoded = atob(normalized);
+    return isLikelyJson(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+};
+
+const toEncodedSignalPayload = (scannedPayload: string): string | null => {
+  const trimmed = scannedPayload.trim();
+  if (!trimmed || trimmed.length > SIGNAL_CODE_MAX_LENGTH) {
+    return null;
+  }
+
+  if (isLikelyJson(trimmed)) {
+    return btoa(trimmed);
+  }
+
+  const normalized = trimmed.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9+/=]+$/.test(normalized)) {
+    return null;
+  }
+
+  const decoded = toRawSignalPayload(normalized);
+  return decoded ? normalized : null;
 };
 
 function QrCodeCard({ title, value }: { title: string; value: string }) {
   const [loadError, setLoadError] = useState(false);
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(value)}`;
+  const [qrSrc, setQrSrc] = useState<string>('');
+
+  useEffect(() => {
+    const rawPayload = toRawSignalPayload(value);
+    if (!rawPayload) {
+      setLoadError(true);
+      setQrSrc('');
+      return;
+    }
+
+    setLoadError(false);
+    void QRCode.toDataURL(rawPayload, {
+      width: 300,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+    }).then((dataUrl) => {
+      setQrSrc(dataUrl);
+    }).catch(() => {
+      setLoadError(true);
+      setQrSrc('');
+    });
+  }, [value]);
 
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">{title}</p>
-      {!loadError ? (
+      {!loadError && qrSrc ? (
         <div className="rounded-lg border border-input bg-white p-3 flex justify-center">
           <img
             src={qrSrc}
@@ -112,7 +172,8 @@ function QrScanner({
             const rawValue = barcodes[0]?.rawValue;
             if (!rawValue) return;
 
-            if (!isSafeSignalPayload(rawValue)) {
+            const encodedPayload = toEncodedSignalPayload(rawValue);
+            if (!encodedPayload) {
               setStatus('Detected QR, but payload is invalid.');
               return;
             }
@@ -120,7 +181,7 @@ function QrScanner({
             setStatus('Code scanned successfully.');
             stopScanner();
             setActive(false);
-            onScan(rawValue);
+            onScan(encodedPayload);
           } catch {
             // ignore transient detection errors while scanning
           }
